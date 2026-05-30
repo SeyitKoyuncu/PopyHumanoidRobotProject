@@ -1,11 +1,17 @@
 import sys
+import os
 import time
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QRadioButton, QComboBox, 
                              QTextEdit, QLabel, QGroupBox)
                              
-from virtual_face import VirtualFace
-from robot_controller import RobotController
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+from src.PoppyTestGUI.virtual_face import VirtualFace
+from src.Controllers.RobotController import RobotController
 
 class PoppyTesterApp(QMainWindow):
     def __init__(self):
