@@ -81,7 +81,24 @@ if __name__ == '__main__':
     os.system('sudo fuser -k /dev/ttyACM0 > /dev/null 2>&1')
     time.sleep(1)
 
-    # 2. Read the configuration file
+    # 2. Perform real-time hardware scan to find active IDs
+    found_ids = []
+    try:
+        ports = pypot.dynamixel.get_available_ports()
+        if not ports:
+            print("[ERROR] No USB port found for scanning!")
+        else:
+            scan_port = ports[0]
+            # Using 'with' ensures the port is safely closed after scanning
+            # so the test function can open it again later.
+            with pypot.dynamixel.DxlIO(scan_port) as dxl_io:
+                print("Scanning hardware for active motors, please wait...")
+                found_ids = dxl_io.scan(range(254))
+            print(f"Scan complete. Found active IDs: {found_ids}")
+    except Exception as e:
+        print(f"Hardware scan error: {e}")
+
+    # 3. Read the configuration file
     try:
         config_path = os.path.join(os.path.dirname(poppy_humanoid.__file__), 'configuration', 'poppy_humanoid.json')
         with open(config_path, 'r') as f:
@@ -91,21 +108,25 @@ if __name__ == '__main__':
         print(f"Cannot read configuration file: {e}")
         expected_motors = {}
 
-    # The healthy IDs detected in your previous scan:
-    found_ids = [11, 12, 13, 14, 15, 21, 22, 23, 24, 25, 31, 32, 33, 34, 35, 36, 37]
-    
-    if expected_motors:
-        print(f"\n{'Motor Name':<22} | {'Expected ID':<12}")
-        print("=" * 40)
+    # 4. Compare expected vs found
+    if expected_motors and found_ids:
+        print(f"\n{'Motor Name':<22} | {'Expected ID':<12} | {'Status':<15}")
+        print("=" * 56)
         
+        missing_count = 0
         for name, info in sorted(expected_motors.items(), key=lambda x: x[1].get('id', 0)):
             m_id = info.get('id')
             if m_id in found_ids:
                 print(f"{name:<22} | {m_id:<12} | ✅ OK")
             else:
                 print(f"{name:<22} | {m_id:<12} | ❌ MISSING")
+                missing_count += 1
                 
-        print("=" * 40)
+        print("=" * 56)
+        print(f"Ready to test {len(found_ids)} motors. {missing_count} motors are missing.")
         
-        # Start the low-level hardware test
+        # 5. Start the low-level hardware test ONLY on found IDs
         test_working_motors_low_level(found_ids)
+        
+    elif not found_ids:
+        print("\n[WARNING] No motors were found on the bus. Hardware test aborted.")
